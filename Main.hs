@@ -5,10 +5,8 @@ import System.IO
 import Data.List (isPrefixOf)
 import Data.List.Split (splitOn)
 import Safe (headMay)
---import qualified Data.Text as T
 
 version = "0.1.0"
-
 
 type Variable = String
 type Row = [String]
@@ -47,15 +45,11 @@ parseHeader rows = [
     parseValue (rows !! 2)
     ]
 
-
 goto :: String -> [Row] -> Maybe [Row]
 goto _ [] = Nothing
 goto text (r:rs) = if text `isPrefixOf` (head r)
                         then Just (r:rs)
                         else goto text rs
-
-
-
 
 splitRow :: String -> [String]
 splitRow = splitOn ","
@@ -75,55 +69,18 @@ parse handle = do
 
 
 isEmpty :: Row -> Bool
-isEmpty r = r !! 0 == [] -- || (length r >= 2 && r !! 1 == []) -- [] == filter (/= "") r
-
---showData :: Data String -> String
---showData (var, val) = var ++ space var ++ val
-
---showDatax :: Data (Maybe Int) -> String
---showDatax (var, Nothing) = var ++ space var ++ ""
---showDatax (var, Just x) = var ++ space var ++ show x
-
---takeMay :: Int -> Maybe [a] -> Maybe [a]
---takeMay = (fmap . take)
-
---next old Nothing = old
---next old (Just new) = new
-
-
---beefCore :: (Row -> Data a) -> Maybe [Row] -> [Data a]
---beefCore _ Nothing = []
---beefCore f (Just rows) = map f rows
+isEmpty r = r !! 0 == [] 
 
 main = do
     fileHandle <- openFile "elevcomma.csv" ReadMode
     rows <- parse fileHandle
     putStrLn $ concat $ rows !! 0
     let cleanRows = filter (not . isEmpty) rows
-    --let z = map processGrid cleanRows
     let a = (parseHeader . take 3) cleanRows
-    --let cleanRows1 = goto "┼ skrive bokstaver" cleanRows
-
-    --let cleanRows1 = goto "Arbeider eleven konsentrert?" cleanRows
-
-
-
-    ----let b = map parseData (take 6 (next cleanRows cleanRows1))
-    --let b = beefCore parseData (takeMay 6 cleanRows1)
-    --let cleanRows2 = goto "1.1 Kjenner igjen navnet sitt." cleanRows
-    --let c = beefCore processGrid (takeMay 4 cleanRows2)
-    --let content = (map toString a ++ map toString b ++ map toString c)
-
     let cc = sweep cleanRows dosMilOcho
-
-    let content = snd cc
-
+    let content = (map toString a) ++ (snd cc)
     mapM putStrLn content
-    --mapM (putStrLn . toString) $ b ++ b ++ c
-
-    --let content = map toString (a ++ b ++ c)
     let f = foldr (\x y -> x ++ "\n" ++ y) "" content
-
     withFile "juice.txt" WriteMode (\handle -> do hPutStrLn handle f)
  
 
@@ -165,9 +122,3 @@ parseVal dataType =
     case dataType of
         Value -> toString . parseValue
         CrossGrid -> toString . parseGrid
-
-
--- do
-    -- process "Searchstring" < Value | CrossGrid > <# of lines>
-    -- process "Searchstring" < Value | CrossGrid > <# of lines>
-    -- process "Searchstring" < Value | CrossGrid > <# of lines>
