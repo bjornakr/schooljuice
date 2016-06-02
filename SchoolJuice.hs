@@ -1,7 +1,7 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}  
 
-module Main where
+module SchoolJuice where
 
 
     import System.IO
@@ -153,55 +153,3 @@ module Main where
                     else do
                         row <- hGetLine handle
                         parse' ((splitOn "," row) : rows)
-
-    main :: IO ()
-    main = do
-        fileHandle <- openFile "elevcomma.csv" ReadMode
-        rows <- parse fileHandle
-        putStrLn $ concat $ head rows
-        let cleanRows = filter (not . isEmpty) rows
-        let a = (parseHeader . take 3) cleanRows
-        let cc = jodlSweep cleanRows spec2008
-        let content = map toString a ++ snd cc
-        hClose fileHandle
-        mapM_ putStrLn content
-        let f = foldr (\x y -> x ++ "\n" ++ y) "" content
-        withFile "juice.txt" WriteMode (\handle -> hPutStrLn handle f)
-     
-
-    --spec2008 :: [SweepSpec]
-    --spec2008 = [
-    --            ("┼ skrive bokstaver", SingleValue, 6),
-    --            ("Test not found", CrossGrid, 9),
-    --            ("Arbeider eleven konsentrert?", CrossGrid, 4),
-    --            ("┼ lese ord", SingleValue, 4),
-    --            ("Arbeider eleven konsentrert?", CrossGrid, 4),
-    --            ("Side 1 - Hvor mange av hver?", SingleValue, 15),
-    --            ("Side 1 - Sett kryss over like mange", SingleValue, 15),
-    --            ("1.1 Kjenner igjen", CrossGrid, 4),
-    --            ("2.1 Har kunnskap om", CrossGrid, 3),
-    --            ("3.1 Har tilegnet seg", CrossGrid, 5),
-    --            ("4.1 Har automatisert", CrossGrid, 7),
-    --            ("\"5.1 Antall parate ordbilder", CrossGrid, 7),
-    --            ("\"6.1 Har automatisert", CrossGrid, 11),
-    --            ("7.1 Setningslesingen", CrossGrid, 4),
-    --            ("\"8.1 Kan bruke ulike begrep", CrossGrid, 12)
-    --            ]
-
-
-
-    spec2008 = DataSpec C2008 [
-        SectionSpec (Section Reading 1) [
-            ScaleSpec "Særskilt norskopplæring" CrossGrid ["SNO1"],
-            ScaleSpec "┼ skrive bokstaver" SingleValue (map ((++) "LN1_" . show) [1..6])
-            ],
-        SectionSpec (Section Arithmetic 2) [
-            ]
-        ]
-
-
-
-    --data SectionType = Reading | Arithmetic
-    --data Section = Section SectionType Grade
-    --data ScaleSpec = ScaleSpec SearchString DataType [Variable]
-    --data SectionSpec = SectionSpec Section [ScaleSpec]
