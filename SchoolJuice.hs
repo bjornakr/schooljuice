@@ -33,30 +33,28 @@ module SchoolJuice where
         toString :: a -> String
 
     instance ToString (Data String) where
-        toString (var, val) = var ++ space var ++ val
+        toString (var, val) = var ++ "\t" ++ val
     instance ToString (Data (Maybe Int)) where
-        toString (var, Nothing) = var ++ space var ++ "."
-        toString (var, Just x) = var ++ space var ++ show x
+        toString (var, Nothing) = var ++ "\t" ++ "."
+        toString (var, Just x) = var ++ "\t" ++ show x
 
     space var = replicate (25 - length var) ' '
 
     findTheX :: Row -> Maybe Int
     findTheX = fmap fst . headMay . filter (\t -> snd t == "X") . zip [1..]
 
+    parseGrid :: (Variable, Row) -> Data (Maybe Int)
+    parseGrid (var, row) = (var, findTheX (tail row))
 
-    parseGrid :: Row -> Data (Maybe Int)
-    parseGrid row = (take 15 (head row), findTheX (tail row))
-
-
-    parseValue :: Row -> Data String
-    parseValue row = (take 15 (row !! 0), row !! 1)
+    parseValue :: (Variable, Row) -> Data String
+    parseValue (var, row) = (var, row !! 1)
 
     parseHeader :: [Row] -> [Data String]
     parseHeader rows = [
-        parseValue (rows !! 0),
-        parseValue (rows !! 1),
-        parseValue (drop 2 (rows !! 1)),
-        parseValue (rows !! 2)
+        parseValue ("navn", (rows !! 0)),
+        parseValue ("hdr1", (rows !! 1)),
+        parseValue ("hdr2", (drop 2 (rows !! 1))),
+        parseValue ("hdr3", (rows !! 2))
         ]
 
     goto :: SearchString -> [Row] -> Maybe [Row]
@@ -70,9 +68,9 @@ module SchoolJuice where
     toSearchString _ (Section Reading 1) = "Lesing 1.trinn"
     toSearchString _ (Section Reading 2) = "Lesing 2. trinn"
     toSearchString _ (Section Reading 3) = "Lesing 3. trinn"
-    toSearchString _ (Section Arithmetic 1) = "Lesing 1.trinn"
-    toSearchString _ (Section Arithmetic 2) = "Lesing 2. trinn"
-    toSearchString _ (Section Arithmetic 3) = "Lesing 3. trinn"
+    toSearchString _ (Section Arithmetic 1) = "Regning 1.trinn"
+    toSearchString _ (Section Arithmetic 2) = "Regning 2. trinn"
+    toSearchString _ (Section Arithmetic 3) = "Regning 3. trinn"
     toSearchString cohort (Section Sol grade) = "SOL - " ++ solString
         where solString
                 | cohort == C2006 = show (2012 + grade) ++ "/" ++ show (2013 + grade)
@@ -94,7 +92,7 @@ module SchoolJuice where
     extractSection cohort section rows =
         case goto (toSearchString cohort section) rows of
             Nothing -> []
-            Just newRows -> (head rows):(takeWhile (not . isSectionStart) (tail rows))
+            Just newRows -> (head newRows):(takeWhile (not . isSectionStart) (tail newRows))
 
     --takeUntilNextSection :: [Row] -> [Row] -> [Row]
     --takeUntilNextSection [] result = result
@@ -113,29 +111,33 @@ module SchoolJuice where
 
 
     jodlSweep :: [Row] -> DataSpec -> ([Row], [String])
-    jodlSweep rows (DataSpec cohort sectionSpecs) = 
-        (foldr (jodlCore cohort) (rows, []) . reverse) sectionSpecs
+    jodlSweep rows (DataSpec cohort sectionSpecs) =        
+        foldr (jodlCore cohort) (rows, []) (reverse sectionSpecs)
 
 
     jodlCore :: Cohort -> SectionSpec -> ([Row], [String]) -> ([Row], [String])
     jodlCore cohort (SectionSpec section scaleSpecs) (rows, collectedData) =
-        sweep (extractSection cohort section rows) scaleSpecs
+        case goto (toSearchString cohort section) rows of
+            Nothing         -> (rows, collectedData)
+            Just foundRows  -> do
+                let sweepResult = sweep foundRows scaleSpecs
+                (fst sweepResult, collectedData ++ (snd sweepResult))
+                --sweep (extractSection cohort section rows) scaleSpecs
 
 
     hubCore :: ScaleSpec -> ([Row], [String]) -> ([Row], [String])
-    hubCore (ScaleSpec searchString dataType vars) _ = error $ "HubCore " ++ searchString
     hubCore (ScaleSpec searchString dataType vars) (rows, collectedData) =
         case goto searchString rows of
             Nothing -> (rows, collectedData)
             Just foundRows -> do 
-                let parseResult = map (parseVal dataType) (take (length vars) foundRows)
-                (foundRows, collectedData ++ parseResult)
+                let parseResult = map (parseVal dataType) (zip vars foundRows)
+                (drop (length vars) foundRows, collectedData ++ parseResult)
 
 
 
 
 
-    parseVal :: DataType -> Row -> String
+    parseVal :: DataType -> (Variable, Row) -> String
     parseVal dataType =
         case dataType of
             SingleValue -> toString . parseValue
