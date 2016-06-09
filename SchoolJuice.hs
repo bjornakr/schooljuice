@@ -124,6 +124,9 @@ module SchoolJuice where
                 (fst sweepResult, collectedData ++ (snd sweepResult))
                 --sweep (extractSection cohort section rows) scaleSpecs
 
+    --skullCore :: [Row] -> DataSpec -> ([Row], [String])
+    --skullCore 
+
 
     hubCore :: ScaleSpec -> ([Row], [String]) -> ([Row], [String])
     hubCore (ScaleSpec searchString dataType vars) (rows, collectedData) =
