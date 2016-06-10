@@ -2,11 +2,7 @@
 {-# LANGUAGE FlexibleInstances #-}  
 
 module SchoolJuice where
-
-
-    import System.IO
     import Data.List (isPrefixOf)
-    import Data.List.Split (splitOn)
     import Safe (headMay)
 
     version = "0.1.0"
@@ -22,7 +18,7 @@ module SchoolJuice where
     --type ScaleSpec = (DataType, [Variable])
     --type SweepSpec2 = (SearchString, ScaleSpec)
 
-    data SectionType = Reading | Arithmetic | Sol
+    data SectionType = Reading | Arithmetic | Sol | Numeracy
     data Section = Section SectionType Grade
     data ScaleSpec = ScaleSpec SearchString DataType [Variable]
     data SectionSpec = SectionSpec Section [ScaleSpec]
@@ -65,17 +61,20 @@ module SchoolJuice where
 
 
     toSearchString :: Cohort -> Section -> String
+    toSearchString C2006 (Section Reading 1) = "Leseferdighet 1. trinn (Utgått)"
     toSearchString _ (Section Reading 1) = "Lesing 1.trinn"
     toSearchString _ (Section Reading 2) = "Lesing 2. trinn"
     toSearchString _ (Section Reading 3) = "Lesing 3. trinn"
-    toSearchString _ (Section Arithmetic 1) = "Regning 1.trinn"
+    toSearchString _ (Section Arithmetic 1) = "Regning 1. trinn"
     toSearchString _ (Section Arithmetic 2) = "Regning 2. trinn"
     toSearchString _ (Section Arithmetic 3) = "Regning 3. trinn"
+    toSearchString C2006 (Section Numeracy 1) = "TallforstÕelse og regneferdighet 1.trinn (UtgÕtt)"
     toSearchString cohort (Section Sol grade) = "SOL - " ++ solString
         where solString
-                | cohort == C2006 = show (2012 + grade) ++ "/" ++ show (2013 + grade)
-                | cohort == C2007 = show (2013 + grade) ++ "/" ++ show (2014 + grade)
-                | cohort == C2008 = show (2014 + grade) ++ "/" ++ show (2015 + grade)
+                | cohort == C2006 = show (2011 + grade) ++ "/" ++ show (2012 + grade)
+                | cohort == C2007 = show (2012 + grade) ++ "/" ++ show (2013 + grade)
+                | cohort == C2008 = show (2013 + grade) ++ "/" ++ show (2014 + grade)
+    toSearchString _ _ = error "Invalid section."
 
 
 
@@ -137,7 +136,8 @@ module SchoolJuice where
                 (drop (length vars) foundRows, collectedData ++ parseResult)
 
 
-
+    createVariables :: String -> [Int] -> [String]
+    createVariables varBase = map ((++) varBase . show)
 
 
     parseVal :: DataType -> (Variable, Row) -> String
@@ -146,15 +146,3 @@ module SchoolJuice where
             SingleValue -> toString . parseValue
             CrossGrid -> toString . parseGrid
 
-    parse :: Handle -> IO [Row]
-    parse handle = do
-        parsed <- parse' []
-        return $ reverse parsed
-        where
-            parse' rows = do
-                isEof <- hIsEOF handle
-                if isEof
-                    then return rows
-                    else do
-                        row <- hGetLine handle
-                        parse' ((splitOn "," row) : rows)
