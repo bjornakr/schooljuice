@@ -3,6 +3,7 @@
 
 module SchoolJuice where
     import Data.List (isPrefixOf)
+    import qualified Data.Map as Map
     import Safe (headMay)
 
     version = "0.1.0"

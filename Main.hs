@@ -2,9 +2,15 @@
 {-# LANGUAGE FlexibleInstances #-}  
 
 module Main where
+    import System.FilePath (takeExtension)
+    import System.Directory (getDirectoryContents)
     import System.IO
+    import qualified Data.Map as Map
     import Data.List.Split (splitOn)
     import SchoolJuice
+
+    --isCsvFile :: FilePath
+    --isCsvFile file = 
 
     parse :: Handle -> IO [Row]
     parse handle = do
@@ -19,8 +25,15 @@ module Main where
                         row <- hGetLine handle
                         parse' ((splitOn ";" row) : rows)
 
+
     main :: IO ()
     main = do
+        allFiles <- getDirectoryContents "."
+        let csvFiles = filter (\x -> takeExtension x == ".csv") allFiles
+        print csvFiles
+
+    main2 :: IO ()
+    main2 = do
         fileHandle <- openFile "2007-2.csv" ReadMode
         rows <- parse fileHandle
         putStrLn $ concat $ head rows
@@ -219,7 +232,45 @@ module Main where
             ]
         ]
 
+    vars = ["Elev", "Kjønn", "Skole1", "Skole2", "Skole3", "SNO1", "SNO2", "SNO3",
+            
+            "TestinfoL1",
+            "L1_2", "L1_3", "L1_4", "L1_5", "L1_6", "L1_7", "L1_8",
+            
+            "TestinfoL2",
+            "L2_1", "L2_2", "L2_3", "L2_4",
+            
+            "TestinfoL3",
+            "L3_1", "L3_2", "L3_3", "L3_4",
+            
+            "TestinfoR2",
+            "R2_1", "R2_2", "R2_3", "R2_4", "R2_5", "R2_6", "R2_7", "R2_8",
+            "R2_10", "R2_11", "R2_12", "R2_13", "R2_14", "R2_15", "R2_16",
+            
+            "TestinfoR3",
+            "R3_1", "R3_2", "R3_3", "R3_4", "R3_5", "R3_6", "R3_7", "R3_8",
+            "R3_9", "R3_10", "R3_13", "R3_14", "R3_15", "R3_16", "R3_17", "R3_18", "R3_19", "R3_20",
+            
+            "TestinfoS1", "S1_11", "S1_12", "S1_13", "S1_14", "S1_21", "S1_22", "S1_23",
+            "S1_31", "S1_32", "S1_33", "S1_34", "S1_35",
+            "S1_41", "S1_42", "S1_43", "S1_44", "S1_45", "S1_46", "S1_47",
+            "S1_51", "S1_52", "S1_53", "S1_54", "S1_55", "S1_56", "S1_57",
+            
+            "TestinfoS2", "S2_11", "S2_12", "S2_13", "S2_14", "S2_21", "S2_22", "S2_23",
+            "S2_31", "S2_32", "S2_33", "S2_34", "S2_35",
+            "S2_41", "S2_42", "S2_43", "S2_44", "S2_45", "S2_46", "S2_47",
+            "S2_51", "S2_52", "S2_53", "S2_54", "S2_55", "S2_56", "S2_57",
+            "S2_61", "S2_62", "S2_63", "S2_64", "S2_65", "S2_66", "S2_67", "S2_68", "S2_69", "S2_610", "S2_611",
+            
+            "TestinfoS3", "S3_11", "S3_12", "S3_13", "S3_14", "S3_21", "S3_22", "S3_23",
+            "S3_31", "S3_32", "S3_33", "S3_34", "S3_35",
+            "S3_41", "S3_42", "S3_43", "S3_44", "S3_45", "S3_46", "S3_47",
+            "S3_51", "S3_52", "S3_53", "S3_54", "S3_55", "S3_56", "S3_57",
+            "S3_61", "S3_62", "S3_63", "S3_64", "S3_65", "S3_66", "S3_67", "S3_68", "S3_69", "S3_610", "S3_611",
 
+            "TestinfoTR1", "TR1_1", "TR1_2", "TR1_3", "TR1_4", "TR1_5", "TR1_6", "TR1_7", "TR1_8",
+            "TR1_9", "TR1_10", "TR1_11"
+            ]
 
 
     --data SectionType = Reading | Arithmetic
