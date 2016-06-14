@@ -11,7 +11,8 @@ module SchoolJuice where
     type Grade = Int
     type Variable = String
     type Row = [String]
-    type Data a = (Variable, a)
+    data DataMap = Map String String
+    --type Data a = (Variable, a)
     data DataType = SingleValue | CrossGrid
     type SearchString = String
     type NoOfRows = Int
@@ -29,30 +30,58 @@ module SchoolJuice where
     class ToString a where
         toString :: a -> String
 
-    instance ToString (Data String) where
-        toString (var, val) = var ++ "\t" ++ val
-    instance ToString (Data (Maybe Int)) where
-        toString (var, Nothing) = var ++ "\t" ++ "."
-        toString (var, Just x) = var ++ "\t" ++ show x
+    --instance ToString (Data String) where
+    --    toString (var, val) = var ++ "\t" ++ val
+    --instance ToString (Data (Maybe Int)) where
+    --    toString (var, Nothing) = var ++ "\t" ++ "."
+    --    toString (var, Just x) = var ++ "\t" ++ show x
 
     space var = replicate (25 - length var) ' '
+
+
 
     findTheX :: Row -> Maybe Int
     findTheX = fmap fst . headMay . filter (\t -> snd t == "X") . zip [1..]
 
-    parseGrid :: (Variable, Row) -> Data (Maybe Int)
-    parseGrid (var, row) = (var, findTheX (tail row))
+    parseGrid :: (Variable, Row) -> Maybe (Variable, String)
+    parseGrid (var, row) = 
+        case findTheX (tail row) of
+            Just x ->  Just (var, show x)
+            Nothing -> Nothing
 
-    parseValue :: (Variable, Row) -> Data String
+    parseValue :: (Variable, Row) -> (Variable, String)
     parseValue (var, row) = (var, row !! 1)
 
-    parseHeader :: [Row] -> [Data String]
-    parseHeader rows = [
+    parseHeader :: [Row] -> Map.Map String String
+    parseHeader rows = Map.fromList [
         parseValue ("navn", (rows !! 0)),
-        parseValue ("hdr1", (rows !! 1)),
-        parseValue ("hdr2", (drop 2 (rows !! 1))),
-        parseValue ("hdr3", (rows !! 2))
+        parseValue ("fdato", (rows !! 1)),
+        (fst gruppe, "'" ++ (snd gruppe) ++ "'"), -- wrapping in quotes to prevent excel converting it to date
+        parseValue ("kjonn", (rows !! 2))
         ]
+        where gruppe = parseValue ("gruppe", (drop 2 (rows !! 1)))
+
+    parseTestDate :: Section -> Row -> Map.Map String String
+    parseTestDate (Section sectionType grade) row =
+        Map.singleton 
+            ("testdato" ++ (sectionLetter sectionType) ++ (show grade))
+            (drop ((length sectionHeader) - 10) sectionHeader)
+        where 
+            sectionHeader :: String
+            sectionHeader = row !! 0
+
+            sectionLetter :: SectionType -> String
+            sectionLetter Reading       = "L"
+            sectionLetter Arithmetic    = "R"
+            sectionLetter Sol           = "S"
+            sectionLetter Numeracy      = "TR"
+
+
+    parseSchoolInfo :: Section -> Row -> Map.Map String String
+    parseSchoolInfo (Section _ grade) row =
+        Map.singleton ("skole" ++ (show grade)) (drop 15 (row !! 0))
+
+
 
     goto :: SearchString -> [Row] -> Maybe [Row]
     goto _ [] = Nothing
@@ -62,7 +91,7 @@ module SchoolJuice where
 
 
     toSearchString :: Cohort -> Section -> String
-    toSearchString C2006 (Section Reading 1) = "Leseferdighet 1. trinn (Utgått)"
+    toSearchString C2006 (Section Reading 1) = "Leseferdighet 1. trinn (UtgÕtt)"
     toSearchString _ (Section Reading 1) = "Lesing 1.trinn"
     toSearchString _ (Section Reading 2) = "Lesing 2. trinn"
     toSearchString _ (Section Reading 3) = "Lesing 3. trinn"
@@ -106,44 +135,54 @@ module SchoolJuice where
     isEmpty :: Row -> Bool
     isEmpty = (==) [] . head
 
-    sweep :: [Row] -> [ScaleSpec] -> ([Row], [String])
-    sweep rows = foldr hubCore (rows, []) . reverse
+    sweep :: [Row] -> [ScaleSpec] -> ([Row], Map.Map String String)
+    sweep rows = foldr hubCore (rows, Map.empty) . reverse
 
 
-    jodlSweep :: [Row] -> DataSpec -> ([Row], [String])
+    jodlSweep :: [Row] -> DataSpec -> ([Row], Map.Map String String)
     jodlSweep rows (DataSpec cohort sectionSpecs) =        
-        foldr (jodlCore cohort) (rows, []) (reverse sectionSpecs)
+        foldr (jodlCore cohort) (rows, Map.empty) (reverse sectionSpecs)
 
 
-    jodlCore :: Cohort -> SectionSpec -> ([Row], [String]) -> ([Row], [String])
+    jodlCore :: Cohort -> SectionSpec -> ([Row], Map.Map String String) -> ([Row], Map.Map String String)
     jodlCore cohort (SectionSpec section scaleSpecs) (rows, collectedData) =
         case goto (toSearchString cohort section) rows of
             Nothing         -> (rows, collectedData)
             Just foundRows  -> do
+                let testDate = parseTestDate section (foundRows !! 0)
+                let school = parseSchoolInfo section (foundRows !! 1)
                 let sweepResult = sweep foundRows scaleSpecs
-                (fst sweepResult, collectedData ++ (snd sweepResult))
+                let newData = foldr Map.union Map.empty [testDate, school, snd sweepResult]
+                (fst sweepResult, Map.union collectedData newData)
                 --sweep (extractSection cohort section rows) scaleSpecs
 
     --skullCore :: [Row] -> DataSpec -> ([Row], [String])
     --skullCore 
 
 
-    hubCore :: ScaleSpec -> ([Row], [String]) -> ([Row], [String])
+    hubCore :: ScaleSpec -> ([Row], Map.Map String String) -> ([Row], Map.Map String String)
     hubCore (ScaleSpec searchString dataType vars) (rows, collectedData) =
         case goto searchString rows of
             Nothing -> (rows, collectedData)
-            Just foundRows -> do 
-                let parseResult = map (parseVal dataType) (zip vars foundRows)
-                (drop (length vars) foundRows, collectedData ++ parseResult)
+            Just foundRows -> do
+                let newData = Map.fromList $ validList $ map (parseVal dataType) (zip vars foundRows)
+                (drop (length vars) foundRows, Map.union collectedData newData)
+
+
+    validList :: [Maybe (Variable, String)] -> [(Variable, String)]
+    validList [] = []
+    validList (Nothing:xs) = validList xs
+    validList ((Just x):xs) = x:validList xs
 
 
     createVariables :: String -> [Int] -> [String]
     createVariables varBase = map ((++) varBase . show)
 
 
-    parseVal :: DataType -> (Variable, Row) -> String
+    parseVal :: DataType -> (Variable, Row) -> Maybe (Variable, String)
     parseVal dataType =
         case dataType of
-            SingleValue -> toString . parseValue
-            CrossGrid -> toString . parseGrid
+            SingleValue ->  Just . parseValue
+            CrossGrid ->    parseGrid
+
 
