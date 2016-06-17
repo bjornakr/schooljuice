@@ -13,13 +13,9 @@ module SchoolJuice where
     type Variable = String
     type Row = [String]
     data DataMap = Map String String
-    --type Data a = (Variable, a)
     data DataType = SingleValue | CrossGrid
     type SearchString = String
     type NoOfRows = Int
-    --type SweepSpec = (SearchString, DataType, NoOfRows)
-    --type ScaleSpec = (DataType, [Variable])
-    --type SweepSpec2 = (SearchString, ScaleSpec)
 
     data SectionType = Reading | Arithmetic | Sol | Numeracy
     data Section = Section SectionType Grade
@@ -30,15 +26,6 @@ module SchoolJuice where
 
     class ToString a where
         toString :: a -> String
-
-    --instance ToString (Data String) where
-    --    toString (var, val) = var ++ "\t" ++ val
-    --instance ToString (Data (Maybe Int)) where
-    --    toString (var, Nothing) = var ++ "\t" ++ "."
-    --    toString (var, Just x) = var ++ "\t" ++ show x
-
-    space var = replicate (25 - length var) ' '
-
 
 
     findTheX :: Row -> Maybe Int
@@ -55,21 +42,21 @@ module SchoolJuice where
 
     parseHeader :: [Row] -> Map.Map String String
     parseHeader rows = Map.fromList [
-        parseValue ("navn", (rows !! 0)),
-        parseValue ("fdato", (rows !! 1)),
-        (fst gruppe, "'" ++ (snd gruppe) ++ "'"), -- wrapping in quotes to prevent excel converting it to date
-        parseValue ("kjonn", (rows !! 2))
+        parseValue ("navn", rows !! 0),
+        parseValue ("fdato", rows !! 1),
+        (fst gruppe, "'" ++ snd gruppe ++ "'"), -- wrapping in quotes to prevent excel converting it to date
+        parseValue ("kjonn", rows !! 2)
         ]
-        where gruppe = parseValue ("gruppe", (drop 2 (rows !! 1)))
+        where gruppe = parseValue ("gruppe", drop 2 (rows !! 1))
 
     parseTestDate :: Section -> Row -> Map.Map String String
     parseTestDate (Section sectionType grade) row =
         Map.singleton 
-            ("testdato" ++ (sectionLetter sectionType) ++ (show grade))
-            (drop ((length sectionHeader) - 10) sectionHeader)
+            ("testdato" ++ sectionLetter sectionType ++ show grade)
+            (drop (length sectionHeader - 10) sectionHeader)
         where 
             sectionHeader :: String
-            sectionHeader = row !! 0
+            sectionHeader = head row
 
             sectionLetter :: SectionType -> String
             sectionLetter Reading       = "L"
@@ -109,8 +96,6 @@ module SchoolJuice where
 
 
 
-
-
     isSectionStart :: Row -> Bool
     isSectionStart row =
         let cell = head row in
@@ -118,34 +103,16 @@ module SchoolJuice where
             "Regning" `isPrefixOf` cell ||
             "SOL" `isPrefixOf` cell
 
-    --extractSection :: Cohort -> Section -> [Row] -> [Row]
-    --extractSection cohort section rows =
-    --    case goto (toSearchString cohort section) rows of
-    --        Nothing -> []
-    --        Just newRows -> (head newRows):(takeWhile (not . isSectionStart) (tail newRows))
-
-    --takeUntilNextSection :: [Row] -> [Row] -> [Row]
-    --takeUntilNextSection [] result = result
-    --takeUntilNextSection (r:rs) result =
-    --    if (isSectionStart r)
-    --        then result
-    --        else takeUntilNextSection rs (r:result)
-
-
-
     isEmpty :: Row -> Bool
     isEmpty = (==) [] . head
-
 
     dropMiddleNames :: String -> String
     dropMiddleNames name =
         let nameParts = splitOn " " name in
-            (head nameParts) ++ " " ++ (last nameParts)
-
+            head nameParts ++ " " ++ last nameParts
 
     sweep :: [Row] -> [ScaleSpec] -> ([Row], Map.Map String String)
     sweep rows = foldr hubCore (rows, Map.empty) . reverse
-
 
     jodlSweep :: [Row] -> DataSpec -> ([Row], Map.Map String String)
     jodlSweep rows (DataSpec cohort sectionSpecs) =        
@@ -162,10 +129,6 @@ module SchoolJuice where
                 let sweepResult = sweep foundRows scaleSpecs
                 let newData = foldr Map.union Map.empty [testDate, school, snd sweepResult]
                 (fst sweepResult, Map.union collectedData newData)
-                --sweep (extractSection cohort section rows) scaleSpecs
-
-    --skullCore :: [Row] -> DataSpec -> ([Row], [String])
-    --skullCore 
 
 
     hubCore :: ScaleSpec -> ([Row], Map.Map String String) -> ([Row], Map.Map String String)
@@ -179,8 +142,8 @@ module SchoolJuice where
 
     validList :: [Maybe (Variable, String)] -> [(Variable, String)]
     validList [] = []
-    validList (Nothing:xs) = validList xs
-    validList ((Just x):xs) = x:validList xs
+    validList (Nothing : xs) = validList xs
+    validList (Just x : xs)  = x : validList xs
 
 
     createVariables :: String -> [Int] -> [String]

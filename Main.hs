@@ -12,15 +12,15 @@ module Main where
 
     dataPath = "./csv/"
     outfile = "juice.csv"
-    --isCsvFile :: FilePath
-    --isCsvFile file = 
+
     getSpec :: Maybe String -> DataSpec
     getSpec Nothing = error "Missing birthyear."
-    getSpec (Just birthYear) = case (drop 6 birthYear) of
-        "2006" -> spec2006
-        "2007" -> spec2007
-        "2008" -> spec2008
-        _ -> error $ "Invalid birthyear: " ++ birthYear
+    getSpec (Just birthYear) = 
+        case drop 6 birthYear of
+            "2006" -> spec2006
+            "2007" -> spec2007
+            "2008" -> spec2008
+            _ -> error $ "Invalid birthyear: " ++ birthYear
 
     parse :: Handle -> IO [Row]
     parse handle = do
@@ -33,7 +33,7 @@ module Main where
                     then return rows
                     else do
                         row <- hGetLine handle
-                        parse' ((splitOn ";" row) : rows)
+                        parse' (splitOn ";" row : rows)
 
 
 
@@ -41,9 +41,9 @@ module Main where
     dataToCsv m = cc $ map (\var -> Map.lookup var m) vars
         where
             cc :: [Maybe String] -> String
-            cc [] = ""
-            cc (Nothing:xs) = ";" ++ (cc xs)
-            cc ((Just x):xs) = x ++ ";" ++ (cc xs)
+            cc []               = ""
+            cc (Nothing : xs)   = ";" ++ cc xs
+            cc (Just x : xs)    = x ++ ";" ++ cc xs
 
 
     main2 :: IO ()
@@ -65,15 +65,15 @@ module Main where
 
     addIdToHeader :: Map.Map String String -> Map.Map String String -> Map.Map String String
     addIdToHeader header nameIdMap =
-        let nameMay = dropMiddleNames <$> (Map.lookup "navn" header)
+        let nameMay = dropMiddleNames <$> Map.lookup "navn" header
             birthDateMay = Map.lookup "fdato" header
             keyMay = (++) <$> nameMay <*> birthDateMay
-            idMay = keyMay >>= ((flip Map.lookup) nameIdMap) 
+            idMay = keyMay >>= (\key -> Map.lookup key nameIdMap)
         in case idMay of
-            (Just id0)  -> Map.insert "id" id0 header
-            (Nothing)   -> header
+            Just id0    -> Map.insert "id" id0 header
+            Nothing     -> header
 
-    processFile :: FilePath -> IO (String)
+    processFile :: FilePath -> IO String
     processFile filePath = do        
         fileHandle <- openFile filePath ReadMode
         rows <- parse fileHandle
@@ -83,20 +83,6 @@ module Main where
         let rest = snd $ jodlSweep cleanRows (getSpec (Map.lookup "fdato" header))
 
         nameIdMap <- createNameIdMap
-        --let idMay =
-        --        case (Map.lookup "navn" header, Map.lookup "fdato" header) of
-        --            (Just navn, Just birthDate) -> 
-        --                Map.lookup ((dropMiddleNames navn) ++ birthDate) nameIdMap
-        --            _ -> Nothing
-
-        --let headerWithId =
-        --        case idMay of
-        --            (Just id0)  -> Map.insert "id" id0 header
-        --            Nothing     -> header
-         
-
-        --let content = map (\(x, y) -> x ++ "\t\t" ++ y) (Map.toList (Map.union header rest))
-        --mapM_ putStrLn content
         hClose fileHandle
 
         let headerWithId = addIdToHeader header nameIdMap
@@ -108,49 +94,13 @@ module Main where
     main = do
         allFiles <- getDirectoryContents dataPath
         let csvFiles = filter (\x -> takeExtension x == ".csv" && x /= outfile && x /= "ids.csv") allFiles
-        --let absPath = map makeAbsolute csvFiles
         allData <- mapM (\x -> processFile (dataPath ++ x)) csvFiles
 
-
-
-        --fileHandle <- openFile "2007-2.csv" ReadMode
-        --rows <- parse fileHandle
-        --putStrLn $ concat $ head rows
-        --let cleanRows = filter (not . isEmpty) rows
-        --let header = (parseHeader . take 3) cleanRows
-        --let scales = snd $ jodlSweep cleanRows spec2007
-        --let content = map (\(x, y) -> x ++ "\t\t" ++ y) (Map.toList (Map.union header scales))
-        --hClose fileHandle
-        --mapM_ putStrLn content
-        --let f = foldr (\x y -> x ++ "\n" ++ y) "" content
         withFile "juice.csv" WriteMode (\handle -> do
             hPutStrLn handle (intercalate ";" vars)
-            
             mapM_ (hPutStrLn handle) allData
             )
      
-
-
-
-    --spec2008 :: [SweepSpec]
-    --spec2008 = [
-    --            ("┼ skrive bokstaver", SingleValue, 6),
-    --            ("Test not found", CrossGrid, 9),
-    --            ("Arbeider eleven konsentrert?", CrossGrid, 4),
-    --            ("┼ lese ord", SingleValue, 4),
-    --            ("Arbeider eleven konsentrert?", CrossGrid, 4),
-    --            ("Side 1 - Hvor mange av hver?", SingleValue, 15),
-    --            ("Side 1 - Sett kryss over like mange", SingleValue, 15),
-    --            ("1.1 Kjenner igjen", CrossGrid, 4),
-    --            ("2.1 Har kunnskap om", CrossGrid, 3),
-    --            ("3.1 Har tilegnet seg", CrossGrid, 5),
-    --            ("4.1 Har automatisert", CrossGrid, 7),
-    --            ("\"5.1 Antall parate ordbilder", CrossGrid, 7),
-    --            ("\"6.1 Har automatisert", CrossGrid, 11),
-    --            ("7.1 Setningslesingen", CrossGrid, 4),
-    --            ("\"8.1 Kan bruke ulike begrep", CrossGrid, 12)
-    --            ]
-
 
 
     spec2006 = DataSpec C2006 [
@@ -358,9 +308,3 @@ module Main where
             "testdatoTR1", "TR1_1", "TR1_2", "TR1_3", "TR1_4", "TR1_5", "TR1_6", "TR1_7", "TR1_8",
             "TR1_9", "TR1_10", "TR1_11"
             ]
-
-
-    --data SectionType = Reading | Arithmetic
-    --data Section = Section SectionType Grade
-    --data ScaleSpec = ScaleSpec SearchString DataType [Variable]
-    --data SectionSpec = SectionSpec Section [ScaleSpec]
