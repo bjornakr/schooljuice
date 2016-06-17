@@ -3,6 +3,7 @@
 
 module SchoolJuice where
     import Data.List (isPrefixOf)
+    import Data.List.Split (splitOn)
     import qualified Data.Map as Map
     import Safe (headMay)
 
@@ -117,11 +118,11 @@ module SchoolJuice where
             "Regning" `isPrefixOf` cell ||
             "SOL" `isPrefixOf` cell
 
-    extractSection :: Cohort -> Section -> [Row] -> [Row]
-    extractSection cohort section rows =
-        case goto (toSearchString cohort section) rows of
-            Nothing -> []
-            Just newRows -> (head newRows):(takeWhile (not . isSectionStart) (tail newRows))
+    --extractSection :: Cohort -> Section -> [Row] -> [Row]
+    --extractSection cohort section rows =
+    --    case goto (toSearchString cohort section) rows of
+    --        Nothing -> []
+    --        Just newRows -> (head newRows):(takeWhile (not . isSectionStart) (tail newRows))
 
     --takeUntilNextSection :: [Row] -> [Row] -> [Row]
     --takeUntilNextSection [] result = result
@@ -134,6 +135,13 @@ module SchoolJuice where
 
     isEmpty :: Row -> Bool
     isEmpty = (==) [] . head
+
+
+    dropMiddleNames :: String -> String
+    dropMiddleNames name =
+        let nameParts = splitOn " " name in
+            (head nameParts) ++ " " ++ (last nameParts)
+
 
     sweep :: [Row] -> [ScaleSpec] -> ([Row], Map.Map String String)
     sweep rows = foldr hubCore (rows, Map.empty) . reverse

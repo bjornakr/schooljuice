@@ -3,13 +3,14 @@
 
 module Main where
     import System.FilePath (takeExtension)
-    import System.Directory (getDirectoryContents)
+    import System.Directory (getDirectoryContents, makeAbsolute)
     import System.IO
     import qualified Data.Map as Map
     import Data.List (intercalate)
     import Data.List.Split (splitOn)
     import SchoolJuice
 
+    dataPath = "./csv/"
     outfile = "juice.csv"
     --isCsvFile :: FilePath
     --isCsvFile file = 
@@ -19,7 +20,7 @@ module Main where
         "2006" -> spec2006
         "2007" -> spec2007
         "2008" -> spec2008
-        _ -> error "Invalid birthyear."
+        _ -> error $ "Invalid birthyear: " ++ birthYear
 
     parse :: Handle -> IO [Row]
     parse handle = do
@@ -33,6 +34,7 @@ module Main where
                     else do
                         row <- hGetLine handle
                         parse' ((splitOn ";" row) : rows)
+
 
 
     dataToCsv :: Map.Map String String -> String
@@ -50,25 +52,67 @@ module Main where
         let csvFiles = filter (\x -> takeExtension x == ".csv") allFiles
         print csvFiles
 
-    processFile :: String -> IO (String)
-    processFile fileName = do
-        fileHandle <- openFile fileName ReadMode
+
+    createNameIdMap :: IO (Map.Map String String)
+    createNameIdMap = do
+        idFile <- openFile "ids.csv" ReadMode
+        rows <- parse idFile
+        return $ Map.fromList (map (\row -> (dropMiddleNames(name row) ++ (birthDate row), id0 row)) rows)
+        where 
+            id0 row = row !! 0
+            name row = (row !! 1) ++ " " ++ (row !! 2)
+            birthDate row = row !! 3
+
+    addIdToHeader :: Map.Map String String -> Map.Map String String -> Map.Map String String
+    addIdToHeader header nameIdMap =
+        let nameMay = dropMiddleNames <$> (Map.lookup "navn" header)
+            birthDateMay = Map.lookup "fdato" header
+            keyMay = (++) <$> nameMay <*> birthDateMay
+            idMay = keyMay >>= ((flip Map.lookup) nameIdMap) 
+        in case idMay of
+            (Just id0)  -> Map.insert "id" id0 header
+            (Nothing)   -> header
+
+    processFile :: FilePath -> IO (String)
+    processFile filePath = do        
+        fileHandle <- openFile filePath ReadMode
         rows <- parse fileHandle
         putStrLn $ concat $ head rows
         let cleanRows = filter (not . isEmpty) rows
         let header = (parseHeader . take 3) cleanRows
         let rest = snd $ jodlSweep cleanRows (getSpec (Map.lookup "fdato" header))
+
+        nameIdMap <- createNameIdMap
+        --let idMay =
+        --        case (Map.lookup "navn" header, Map.lookup "fdato" header) of
+        --            (Just navn, Just birthDate) -> 
+        --                Map.lookup ((dropMiddleNames navn) ++ birthDate) nameIdMap
+        --            _ -> Nothing
+
+        --let headerWithId =
+        --        case idMay of
+        --            (Just id0)  -> Map.insert "id" id0 header
+        --            Nothing     -> header
+         
+
         --let content = map (\(x, y) -> x ++ "\t\t" ++ y) (Map.toList (Map.union header rest))
         --mapM_ putStrLn content
         hClose fileHandle
-        return $ dataToCsv (Map.union header rest)
+
+        let headerWithId = addIdToHeader header nameIdMap
+
+        return $ dataToCsv (Map.union headerWithId rest)
 
 
     main :: IO ()
     main = do
-        allFiles <- getDirectoryContents "."        
-        let csvFiles = filter (\x -> takeExtension x == ".csv" && x /= outfile) allFiles
-        
+        allFiles <- getDirectoryContents dataPath
+        let csvFiles = filter (\x -> takeExtension x == ".csv" && x /= outfile && x /= "ids.csv") allFiles
+        --let absPath = map makeAbsolute csvFiles
+        allData <- mapM (\x -> processFile (dataPath ++ x)) csvFiles
+
+
+
         --fileHandle <- openFile "2007-2.csv" ReadMode
         --rows <- parse fileHandle
         --putStrLn $ concat $ head rows
@@ -81,7 +125,7 @@ module Main where
         --let f = foldr (\x y -> x ++ "\n" ++ y) "" content
         withFile "juice.csv" WriteMode (\handle -> do
             hPutStrLn handle (intercalate ";" vars)
-            allData <- mapM processFile csvFiles
+            
             mapM_ (hPutStrLn handle) allData
             )
      
@@ -273,7 +317,7 @@ module Main where
             ]
         ]
 
-    vars = ["navn", "fdato", "gruppe", "kjonn", "skole1", "skole2", "skole3", "SNO1", "SNO2", "SNO3",
+    vars = ["navn","id", "fdato", "gruppe", "kjonn", "skole1", "skole2", "skole3", "SNO1", "SNO2", "SNO3",
             
             "testdatoL1",
             "L1_2", "L1_3", "L1_4", "L1_5", "L1_6", "L1_7", "L1_8",
