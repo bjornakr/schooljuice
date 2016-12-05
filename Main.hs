@@ -2,25 +2,26 @@
 {-# LANGUAGE FlexibleInstances #-}  
 
 module Main where
-    import System.FilePath (takeExtension)
+    import System.FilePath (takeExtension, takeFileName)
     import System.Directory (getDirectoryContents, makeAbsolute)
     import System.IO
     import qualified Data.Map as Map
-    import Data.List (intercalate)
+    import Data.List (intercalate, sort, sortBy)
     import Data.List.Split (splitOn)
+    import Data.Maybe (fromMaybe)
     import SchoolJuice
 
-    dataPath = "./csv/"
+    dataPath = "./csv5/"
     outfile = "juice.csv"
 
-    getSpec :: Maybe String -> DataSpec
-    getSpec Nothing = error "Missing birthyear."
-    getSpec (Just birthYear) = 
+    birthYearToSpec :: Maybe String -> Maybe DataSpec
+    birthYearToSpec Nothing = Nothing --error "Missing birthyear."
+    birthYearToSpec (Just birthYear) = 
         case drop 6 birthYear of
-            "2006" -> spec2006
-            "2007" -> spec2007
-            "2008" -> spec2008
-            _ -> error $ "Invalid birthyear: " ++ birthYear
+            "2006" -> Just spec2006
+            "2007" -> Just spec2007
+            "2008" -> Just spec2008
+            _ -> Nothing -- error $ "Invalid birthyear: " ++ birthYear
 
     parse :: Handle -> IO [Row]
     parse handle = do
@@ -80,14 +81,39 @@ module Main where
         putStrLn $ concat $ head rows
         let cleanRows = filter (not . isEmpty) rows
         let header = (parseHeader . take 3) cleanRows
-        let rest = snd $ jodlSweep cleanRows (getSpec (Map.lookup "fdato" header))
+        --let spec = fromMaybe 
+        --            (error ((takeFileName filePath) ++ ": Invalid birthdate"))
+        --            (birthYearToSpec (Map.lookup "fdato" header))
+        let maybeSpec = (birthYearToSpec (Map.lookup "fdato" header))
+        case maybeSpec of
+            Nothing -> return $ (takeFileName filePath) ++ "Missing birth date"
+            Just spec -> do
+                let rest = snd $ jodlSweep cleanRows spec --(birthYearToSpec (Map.lookup "fdato" header))
+                nameIdMap <- createNameIdMap
+                hClose fileHandle
+                let headerWithId = addIdToHeader header nameIdMap
+                return $ dataToCsv (Map.union headerWithId rest)
 
-        nameIdMap <- createNameIdMap
-        hClose fileHandle
+    removeDups :: [String] -> [String]
+    removeDups rows =
+        compute $ sortBy duplicatesLast rows
+        where
+            compute :: [String] -> [String]
+            compute (r1:r2:rs) =
+                if (isDuplicate r1 r2)
+                    then (compute (r2 : rs))
+                    else (r1 : (compute (r2:rs)))                
+            
+            compute x = x
 
-        let headerWithId = addIdToHeader header nameIdMap
+            duplicatesLast :: String -> String -> Ordering
+            duplicatesLast x y = if isDuplicate x y
+                            then compare (length x) (length y) 
+                            else compare x y
 
-        return $ dataToCsv (Map.union headerWithId rest)
+            
+            isDuplicate x1 x2 = (take 30 x1) == (take 30 x2)
+
 
 
     main :: IO ()
@@ -95,10 +121,10 @@ module Main where
         allFiles <- getDirectoryContents dataPath
         let csvFiles = filter (\x -> takeExtension x == ".csv" && x /= outfile && x /= "ids.csv") allFiles
         allData <- mapM (\x -> processFile (dataPath ++ x)) csvFiles
-
+        let allDataNoDups = removeDups allData
         withFile "juice.csv" WriteMode (\handle -> do
             hPutStrLn handle (intercalate ";" vars)
-            mapM_ (hPutStrLn handle) allData
+            mapM_ (hPutStrLn handle) allDataNoDups
             )
      
 
@@ -277,6 +303,10 @@ module Main where
             
             "testdatoL3",
             "L3_1", "L3_2", "L3_3", "L3_4",
+
+            "testdatoR1",
+            "R1_1", "R1_2", "R1_3", "R1_4", "R1_5", "R1_6", "R1_7", "R1_8",
+            "R1_10", "R1_11", "R1_12", "R1_13", "R1_14", "R1_15", "R1_16",
             
             "testdatoR2",
             "R2_1", "R2_2", "R2_3", "R2_4", "R2_5", "R2_6", "R2_7", "R2_8",
