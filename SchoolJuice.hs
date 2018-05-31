@@ -6,6 +6,7 @@ module SchoolJuice where
     import Data.List.Split (splitOn)
     import qualified Data.Map as Map
     import Safe (headMay)
+    import Data.Maybe (fromMaybe)
 
     version = "0.1.0"
 
@@ -48,6 +49,19 @@ module SchoolJuice where
         parseValue ("kjonn", rows !! 2)
         ]
         where gruppe = parseValue ("gruppe", drop 2 (rows !! 1))
+
+    insertBirthDateIfMissing :: Map.Map String String -> Map.Map String String
+    insertBirthDateIfMissing header =
+        case (Map.lookup "fdato" header) of
+            Just [] ->
+                let bd = do
+                        name <- Map.lookup "navn" header
+                        birthdate <- Map.lookup name birthdates
+                        return birthdate
+                in Map.insert "fdato" (fromMaybe "EMPTY" bd) header
+
+            --Map.insert "fdato" (fromMaybe "" (Map.lookup birthdates (fromMaybe "" (Map.lookup "name")))) header 
+            _ -> header
 
     parseTestDate :: Section -> Row -> Map.Map String String
     parseTestDate (Section sectionType grade) row =
@@ -157,3 +171,5 @@ module SchoolJuice where
             CrossGrid ->    parseGrid
 
 
+    birthdates = Map.fromList []
+    

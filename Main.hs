@@ -66,7 +66,9 @@ module Main where
 
     addIdToHeader :: Map.Map String String -> Map.Map String String -> Map.Map String String
     addIdToHeader header nameIdMap =
-        let nameMay = dropMiddleNames <$> Map.lookup "navn" header
+        let 
+            --name = fromMaybe "" Map.lookup "navn" header
+            nameMay = dropMiddleNames <$> Map.lookup "navn" header
             birthDateMay = Map.lookup "fdato" header
             keyMay = (++) <$> nameMay <*> birthDateMay
             idMay = keyMay >>= (\key -> Map.lookup key nameIdMap)
@@ -78,9 +80,10 @@ module Main where
     processFile filePath = do        
         fileHandle <- openFile filePath ReadMode
         rows <- parse fileHandle
-        putStrLn $ concat $ head rows
+        --putStrLn $ concat $ head rows
         let cleanRows = filter (not . isEmpty) rows
-        let header = (parseHeader . take 3) cleanRows
+        let header = insertBirthDateIfMissing $ (parseHeader . take 3) cleanRows
+        putStrLn $ show header
         --let spec = fromMaybe 
         --            (error ((takeFileName filePath) ++ ": Invalid birthdate"))
         --            (birthYearToSpec (Map.lookup "fdato" header))
@@ -305,11 +308,11 @@ module Main where
             "L3_1", "L3_2", "L3_3", "L3_4",
 
             "testdatoR1",
-            "R1_1", "R1_2", "R1_3", "R1_4", "R1_5", "R1_6", "R1_7", "R1_8",
+            "R1_1", "R1_2", "R1_3", "R1_4", "R1_5", "R1_6", "R1_7", "R1_8", "R1_9",
             "R1_10", "R1_11", "R1_12", "R1_13", "R1_14", "R1_15", "R1_16",
             
             "testdatoR2",
-            "R2_1", "R2_2", "R2_3", "R2_4", "R2_5", "R2_6", "R2_7", "R2_8",
+            "R2_1", "R2_2", "R2_3", "R2_4", "R2_5", "R2_6", "R2_7", "R2_8", "R2_9",
             "R2_10", "R2_11", "R2_12", "R2_13", "R2_14", "R2_15", "R2_16",
             
             "testdatoR3",
